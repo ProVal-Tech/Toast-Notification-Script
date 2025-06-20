@@ -47,7 +47,7 @@
 
 .NOTES
     - Requires Windows 10/11.
-    - Extensive logging is written to $env:AppData\ToastNotification\log\ToastNotification.log.
+    - Extensive logging is written to $env:ProgramData\_automation\Script\New-ToastNotification\ToastNotification.log.
 
 .LINK
    - https://github.com/imabdk/Toast-Notification-Script
@@ -59,6 +59,14 @@ param(
     [Parameter(HelpMessage = 'Path to XML Configuration File')]
     [string]$Config
 )
+
+#region Global Variables
+# Define global variables used throughout the script
+$global:ScriptVersion = '3.0'  # Version of the script
+$global:ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition  # Path where the script is located
+$global:CustomScriptsPath = "$env:ProgramData\_automation\Script\New-ToastNotification"  # Path for custom action scripts
+$global:RegistryPath = 'HKCU:\SOFTWARE\ToastNotificationScript'  # Registry path for script settings
+#endRegion
 
 #region Logging
 # This region contains functions related to logging script activities.
@@ -74,7 +82,7 @@ param(
     The message to be logged.
 
 .PARAMETER Path
-    The path to the log file. Defaults to "$env:AppData\ToastNotification\log\ToastNotification.log".
+    The path to the log file. Defaults to "$global:CustomScriptsPath\ToastNotification.log".
 
 .PARAMETER Level
     The log level: 'Info', 'Warn', or 'Error'. Defaults to 'Info'.
@@ -91,7 +99,7 @@ function Write-ToastLog {
         [string]$Message,
         [Parameter(Mandatory = $false)]
         [Alias('LogPath')]
-        [string]$Path = "$env:AppData\ToastNotification\log\ToastNotification.log",
+        [string]$Path = "$global:CustomScriptsPath\ToastNotification.log",
         [Parameter(Mandatory = $false)]
         [ValidateSet('Error', 'Warn', 'Info')]
         [string]$Level = 'Info'
@@ -1180,11 +1188,7 @@ Add-Type -ReferencedAssemblies ''System'', ''System.Runtime.InteropServices'' -T
                 }
                 try {
                     $GetCustomScriptPath = $PathInfo.FullName
-                    [String]$Script = "
-set passedArg=%1
-:: remove part before : from passed string
-set base64=%passedArg:*:=%
-powershell.exe -ExecutionPolicy Bypass -NoLogo -NonInteractive -NoProfile -WindowStyle Hidden -EncodedCommand %base64%"
+                    [String]$Script = "$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NoLogo -NonInteractive -NoProfile -WindowStyle Hidden -File `"$psScriptPath`""
                     if (-not [string]::IsNullOrEmpty($Script)) {
                         Out-File -FilePath $GetCustomScriptPath -InputObject $Script -Encoding ASCII -Force
                     }
@@ -1354,13 +1358,6 @@ function Register-CustomNotificationApp {
 
 #region Initialization
 # This region initializes global variables and ensures required paths exist.
-
-# Define global variables used throughout the script
-$global:ScriptVersion = '3.0'  # Version of the script
-$global:ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition  # Path where the script is located
-$global:CustomScriptsPath = "$env:AppData\ToastNotification\Scripts"  # Path for custom action scripts
-$global:RegistryPath = 'HKCU:\SOFTWARE\ToastNotificationScript'  # Registry path for script settings
-
 $RunningOS = try {
     Get-CimInstance -Class Win32_OperatingSystem | Select-Object BuildNumber
 } catch {
@@ -1374,8 +1371,8 @@ $userCulture = try {
 }  # User's culture for localization
 
 $defaultUserCulture = 'en-US'  # Default culture if user's culture fails
-$LogoImageTemp = "$env:TEMP\ToastLogoImage.jpg"  # Temporary file for logo image
-$HeroImageTemp = "$env:TEMP\ToastHeroImage.jpg"  # Temporary file for hero image
+$LogoImageTemp = "$global:CustomScriptsPath\ToastLogoImage.jpg"  # Temporary file for logo image
+$HeroImageTemp = "$global:CustomScriptsPath\ToastHeroImage.jpg"  # Temporary file for hero image
 $ImagesPath = "file:///$global:ScriptPath/Images"  # Path for local images
 
 # Ensure the registry path exists
@@ -1497,18 +1494,13 @@ if (-not [string]::IsNullOrEmpty($Xml)) {
         $LimitToastToRunEveryMinutesEnabled = $Xml.Configuration.Option | Where-Object { $_.Name -like 'LimitToastToRunEveryMinutes' } | Select-Object -ExpandProperty 'Enabled'
         $LimitToastToRunEveryMinutesValue = $Xml.Configuration.Option | Where-Object { $_.Name -like 'LimitToastToRunEveryMinutes' } | Select-Object -ExpandProperty 'Value'
         $RunPackageIDEnabled = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunPackageID' } | Select-Object -ExpandProperty 'Enabled'
-        $RunPackageIDValue = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunPackageID' } | Select-Object -ExpandProperty 'Value'
         $RunApplicationIDEnabled = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunApplicationID' } | Select-Object -ExpandProperty 'Enabled'
-        $RunApplicationIDValue = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunApplicationID' } | Select-Object -ExpandProperty 'Value'
         $RunUpdateIDEnabled = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunUpdateID' } | Select-Object -ExpandProperty 'Enabled'
         $RunUpdateIDValue = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunUpdateID' } | Select-Object -ExpandProperty 'Value'
-        $RunUpdateTitleEnabled = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunUpdateTitle' } | Select-Object -ExpandProperty 'Enabled'
         $RunUpdateTitleValue = $Xml.Configuration.Option | Where-Object { $_.Name -like 'RunUpdateTitle' } | Select-Object -ExpandProperty 'Value'
         $CustomAppEnabled = $Xml.Configuration.Option | Where-Object { $_.Name -like 'CustomNotificationApp' } | Select-Object -ExpandProperty 'Enabled'
         $CustomAppValue = $Xml.Configuration.Option | Where-Object { $_.Name -like 'CustomNotificationApp' } | Select-Object -ExpandProperty 'Value'
-        $SCAppName = $Xml.Configuration.Option | Where-Object { $_.Name -like 'UseSoftwareCenterApp' } | Select-Object -ExpandProperty 'Name'
         $SCAppStatus = $Xml.Configuration.Option | Where-Object { $_.Name -like 'UseSoftwareCenterApp' } | Select-Object -ExpandProperty 'Enabled'
-        $PSAppName = $Xml.Configuration.Option | Where-Object { $_.Name -like 'UsePowershellApp' } | Select-Object -ExpandProperty 'Name'
         $PSAppStatus = $Xml.Configuration.Option | Where-Object { $_.Name -like 'UsePowershellApp' } | Select-Object -ExpandProperty 'Enabled'
         $CustomAudio = $Xml.Configuration.Option | Where-Object { $_.Name -like 'CustomAudio' } | Select-Object -ExpandProperty 'Enabled'
         $LogoImageFileName = $Xml.Configuration.Option | Where-Object { $_.Name -like 'LogoImageName' } | Select-Object -ExpandProperty 'Value'
@@ -1639,7 +1631,7 @@ if ( ( $SCAppStatus -eq 'True' ) -and ( $PSAppStatus -eq 'True' ) ) {
 }
 if ( ( $SCAppStatus -ne 'True' ) -and ( $PSAppStatus -ne 'True' ) -and ( $CustomAppEnabled -ne 'True' ) ) {
     Write-ToastLog -Level Error -Message "Error. Conflicting selection in the $Config file"
-    Write-ToastLog -Level Error -Message "Error. You need to enable at least 1 app in the config doing the notification. ie. Software Center or Powershell. Check your config"
+    Write-ToastLog -Level Error -Message 'Error. You need to enable at least 1 app in the config doing the notification. ie. Software Center or Powershell. Check your config'
     Exit 1
 }
 if ( ( $SCAppStatus -eq 'True' ) -and ( $CustomAppEnabled -eq 'True' ) ) {
@@ -1790,21 +1782,6 @@ if (-not (Test-Path -Path $psScriptPath)) {
     Write-ToastLog -Level Error -Message "Provided path of the script to run '$psScriptPath' not found."
     Exit 1
 }
-
-# Set Base64 Code in ToastRunPSScript action
-$psCommandToExecute = '& "{0}"' -f $psScriptPath
-# encode to base64
-$bytes = [System.Text.Encoding]::Unicode.GetBytes($psCommandToExecute)
-$encodedString = [Convert]::ToBase64String($bytes)
-
-if ($Action1 -match '^ToastRunPSScript:') {
-    $Action1 = 'ToastRunPSScript:{0}' -f $encodedString
-} elseif ($Action2 -match '^ToastRunPSScript:') {
-    $Action2 = 'ToastRunPSScript:{0}' -f $encodedString
-} else {
-    $Action3 = 'ToastRunPSScript:{0}' -f $encodedString
-}
-#endregion
 
 #region Toast Notification Preparation
 # This region prepares dynamic content and constructs the toast notification XML.
