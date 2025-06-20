@@ -66,6 +66,10 @@ $global:ScriptVersion = '3.0'  # Version of the script
 $global:ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition  # Path where the script is located
 $global:CustomScriptsPath = "$env:ProgramData\_automation\Script\New-ToastNotification"  # Path for custom action scripts
 $global:RegistryPath = 'HKCU:\SOFTWARE\ToastNotificationScript'  # Registry path for script settings
+$defaultUserCulture = 'en-US'  # Default culture if user's culture fails
+$LogoImageTemp = "$global:CustomScriptsPath\ToastLogoImage.jpg"  # Temporary file for logo image
+$HeroImageTemp = "$global:CustomScriptsPath\ToastHeroImage.jpg"  # Temporary file for hero image
+$ImagesPath = "file:///$global:CustomScriptsPath/New-ToastNotification/Images"  # Path for local images
 #endRegion
 
 #region Logging
@@ -1369,11 +1373,6 @@ $userCulture = try {
 } catch {
     Write-ToastLog -Level Error -Message 'Failed to get users local culture. This is used with the multi-language option, which now might not work properly'
 }  # User's culture for localization
-
-$defaultUserCulture = 'en-US'  # Default culture if user's culture fails
-$LogoImageTemp = "$global:CustomScriptsPath\ToastLogoImage.jpg"  # Temporary file for logo image
-$HeroImageTemp = "$global:CustomScriptsPath\ToastHeroImage.jpg"  # Temporary file for hero image
-$ImagesPath = "file:///$global:ScriptPath/Images"  # Path for local images
 
 # Ensure the registry path exists
 if (-not (Test-Path -Path $global:RegistryPath)) {
