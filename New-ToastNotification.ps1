@@ -1513,7 +1513,7 @@ if (-not [string]::IsNullOrEmpty($Xml)) {
         if ((-not [string]::IsNullOrEmpty($LogoImageFileName)) -and ([string]::IsNullOrEmpty($LogoImage))) {
             $LogoImage = $ImagesPath + '/' + $LogoImageFileName
         }
-        if ((-not [string]::IsNullOrEmpty($LogoImageFileName)) -and ([string]::IsNullOrEmpty($HeroImage))) {
+        if ((-not [string]::IsNullOrEmpty($HeroImageFileName)) -and ([string]::IsNullOrEmpty($HeroImage))) {
             $HeroImage = $ImagesPath + '/' + $HeroImageFileName
         }
         $Scenario = $Xml.Configuration.Option | Where-Object { $_.Name -like 'Scenario' } | Select-Object -ExpandProperty 'Type'
@@ -1808,13 +1808,13 @@ if ( $LimitToastToRunEveryMinutesEnabled -eq 'True' ) {
 if ( ( $HeroImageFileName.StartsWith( 'https://' ) ) -or ( $HeroImageFileName.StartsWith( 'http://' ) ) ) {
     Write-ToastLog -Message 'ToastHeroImage appears to be hosted online. Will need to download the file'
     try {
-        $testOnlineHeroImage = Invoke-WebRequest -Uri $HeroImageFileName -UseBasicParsing 
+        $testOnlineHeroImage = Invoke-WebRequest -Uri $HeroImageFileName -UseBasicParsing
     } catch {
         $null
     }
     if ( $testOnlineHeroImage.StatusDescription -eq 'OK' ) {
         try {
-            Invoke-WebRequest -Uri $HeroImageFileName -OutFile $HeroImageTemp
+            Invoke-WebRequest -Uri $HeroImageFileName -OutFile $HeroImageTemp -UseBasicParsing
             $HeroImage = $HeroImageTemp
             Write-ToastLog -Message "Successfully downloaded $HeroImageTemp from $HeroImageFileName"
         } catch {
@@ -1822,6 +1822,27 @@ if ( ( $HeroImageFileName.StartsWith( 'https://' ) ) -or ( $HeroImageFileName.St
         }
     } else {
         Write-ToastLog -Level Error -Message "The image supposedly located on $HeroImageFileName is not available"
+    }
+}
+
+# Download logo image if hosted online
+if ( ( $LogoImageFileName.StartsWith( 'https://' ) ) -or ( $LogoImageFileName.StartsWith( 'http://' ) ) ) {
+    Write-ToastLog -Message 'ToastLogoImage appears to be hosted online. Will need to download the file'
+    try {
+        $testOnlineLogoImage = Invoke-WebRequest -Uri $LogoImageFileName -UseBasicParsing
+    } catch {
+        $null
+    }
+    if ( $testOnlineLogoImage.StatusDescription -eq 'OK' ) {
+        try {
+            Invoke-WebRequest -Uri $LogoImageFileName -OutFile $LogoImageTemp -UseBasicParsing
+            $LogoImage = $LogoImageTemp
+            Write-ToastLog -Message "Successfully downloaded $LogoImageTemp from $LogoImageFileName"
+        } catch {
+            Write-ToastLog -Level Error -Message "Failed to download the $LogoImageTemp from $LogoImageFileName"
+        }
+    } else {
+        Write-ToastLog -Level Error -Message "The image supposedly located on $LogoImageFileName is not available"
     }
 }
 
