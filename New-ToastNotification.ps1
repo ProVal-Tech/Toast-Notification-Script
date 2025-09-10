@@ -1399,9 +1399,18 @@ if ($Action3 -match '^ToastRunPSScript:$' -and $Action3 -notmatch '\.ps1') {
 $psScriptPath = if ($Action3 -match '^ToastRunPSScript:') {
     (($Action3 -split ':')[1..$($Action3.Length)]) -join ':'
 }
-if (-not (Test-Path -Path $psScriptPath)) {
-    Write-ToastLog -Level Error -Message "Provided path of the script to run '$psScriptPath' not found."
-    exit 1
+if ($Action3 -match '^ToastRunPSScript:') {
+    if ([string]::IsNullOrEmpty($psScriptPath)) {
+        Write-ToastLog -Level Error -Message 'Error. Incomplete Value in the $Config file Action3 tag'
+        Write-ToastLog -Level Error -Message 'Error. You have to specify also the ps1 path: like ToastRunPSScript:C:\ProgramData\_Automation\Script\ScriptName.ps1'
+        exit 1
+    }
+}
+if ($psScriptPath) {
+    if (-not (Test-Path -Path $psScriptPath)) {
+        Write-ToastLog -Level Error -Message "Provided path of the script to run '$psScriptPath' not found."
+        exit 1
+    }
 }
 
 # Validate custom PowerShell script actions
@@ -1626,7 +1635,7 @@ Write-ToastLog -Message 'Creating the xml for enabled action buttons'
         <text>$HeaderText</text>
         <group>
             <subgroup>
-                <text hint-style = "title" hint-wrap = "true">$TitleText</text>
+                <text hint-style = "Subtitle" hint-wrap = "true">$TitleText</text>
             </subgroup>
         </group>
         <group>
@@ -1662,7 +1671,7 @@ if ($SnoozeButtonEnabled -eq 'True') {
         <text>$HeaderText</text>
         <group>
             <subgroup>
-                <text hint-style = "title" hint-wrap = "true">$TitleText</text>
+                <text hint-style = "Subtitle" hint-wrap = "true">$TitleText</text>
             </subgroup>
         </group>
         <group>
