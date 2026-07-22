@@ -19,6 +19,7 @@
         - Logging of all actions and errors for troubleshooting and auditing.
         - Learn More button functionality that opens a URL and re-displays the notification if clicked.
         - PowerShell script execution via ToastRunPSScript actions for custom automation tasks.
+        - Silent execution of custom PowerShell scripts via SilentLauncher.exe to prevent window flashing.
 
     This version focuses on core notification scenarios and removes legacy ConfigMgr integration and OS
     upgrade features. The script makes changes to the local machine (registry entries, custom action
@@ -26,6 +27,11 @@
     the scheduled task that Invoke-ToastNotification.ps1 creates); if it detects the SYSTEM or any
     non-user context it logs the reason and throws, because toast notifications can only be shown in the
     user session.
+
+    If a custom PowerShell script (Action3) is configured, the script will automatically download
+    SilentLauncher.exe to the working directory. The ToastRunPSScript protocol handler is then configured
+    to use SilentLauncher.exe to execute the target script, ensuring it runs completely silently without
+    flashing a PowerShell window when the user clicks the action button.
 
 .PARAMETER Config
     Path to the XML configuration file. Can be a local path or a URL. If not specified, defaults to
@@ -41,6 +47,7 @@
     - Must run as the logged on user, not SYSTEM. The script throws if launched in a non-user context.
     - Extensive logging is written to $env:ProgramData\_Automation\Script\New-ToastNotification\ToastNotification.log.
     - Learn More button functionality creates temporary files and registry entries for protocol handling.
+    - If Action3 (Run Script) is used, SilentLauncher.exe is downloaded to execute the script silently.
 
 .LINK
     https://github.com/imabdk/Toast-Notification-Script
@@ -62,6 +69,10 @@ $ConfirmPreference = 'None'
 $scriptVersion = '4.0'
 $scriptRootPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 $customScriptsPath = '{0}\_Automation\Script\New-ToastNotification' -f $env:ProgramData
+$silentLauncherName = 'SilentLauncher'
+$silentLauncherPath = '{0}\{1}.exe' -f $customScriptsPath, $silentLauncherName
+$baseUrl = 'https://contentrepo.net/repo'
+$silentLauncherUrl = '{0}/app/{1}.exe' -f $baseUrl, $silentLauncherName
 $registryPath = 'HKCU:\SOFTWARE\ToastNotificationScript'
 $defaultUserCulture = 'en-US'
 $logoImageTemp = '{0}\ToastLogoImage.jpg' -f $customScriptsPath
@@ -250,7 +261,7 @@ function Enable-WindowsPushNotification {
     Write-ToastLog -Message 'Trying to enable toast notifications for the logged on user'
     try {
         Set-ItemProperty -Path $toastEnabledKeyPath -Name ToastEnabled -Value 1 -Force
-        Get-Service -Name WpnUserService** | Restart-Service -Force
+        Get-Service -Name 'WpnUserService*' | Restart-Service -Force
         Write-ToastLog -Message 'Successfully enabled toast notifications for the logged on user'
     } catch {
         Write-ToastLog -Level Error -Message 'Failed to enable toast notifications for the logged on user. Toast notifications will probably not be displayed'
@@ -403,6 +414,8 @@ function Write-CustomActionRegistry {
         Registers custom action protocols in the registry.
     .DESCRIPTION
         Creates registry entries for custom protocols (for example ToastReboot) used by toast action buttons.
+        Points the protocol handler to SilentLauncher.exe to execute the .cmd files silently and guarantee 
+        zero window flashing at the OS level.
     .PARAMETER ActionType
         The type of action to register (for example ToastReboot).
     .PARAMETER RegCommandPath
@@ -426,15 +439,19 @@ function Write-CustomActionRegistry {
         New-Item -Path ('HKCU:\Software\Classes\{0}\shell\open\command' -f $ActionType) -Force -ErrorAction SilentlyContinue | Out-Null
         New-ItemProperty -LiteralPath ('HKCU:\Software\Classes\{0}' -f $ActionType) -Name 'URL Protocol' -Value '' -PropertyType String -Force -ErrorAction SilentlyContinue | Out-Null
         New-ItemProperty -LiteralPath ('HKCU:\Software\Classes\{0}' -f $ActionType) -Name '(default)' -Value ('URL:{0} Protocol' -f $ActionType) -PropertyType String -Force -ErrorAction SilentlyContinue | Out-Null
+
+        $silentLauncherPath = '{0}\SilentLauncher.exe' -f $RegCommandPath
+        $cmdFilePath = '{0}\{1}.cmd' -f $RegCommandPath, $ActionType
+
         if ($ActionType -eq 'ToastRunPSScript') {
-            $regCommandValue = '{0}\{1}.cmd {2}%1{2}' -f $RegCommandPath, $ActionType, [char]34
+            $regCommandValue = '{0}{1}{0} -script {0}{2}{0} %1' -f [char]34, $silentLauncherPath, $cmdFilePath
         } else {
-            $regCommandValue = '{0}\{1}.cmd' -f $RegCommandPath, $ActionType
+            $regCommandValue = '{0}{1}{0} -script {0}{2}{0}' -f [char]34, $silentLauncherPath, $cmdFilePath
         }
+
         New-ItemProperty -LiteralPath ('HKCU:\Software\Classes\{0}\shell\open\command' -f $ActionType) -Name '(default)' -Value $regCommandValue -PropertyType String -Force -ErrorAction SilentlyContinue | Out-Null
     } catch {
-        Write-ToastLog -Level Error -Message ('Failed to create the {0} custom protocol in HKCU\Software\Classes. Action button might not work' -f $ActionType)
-        Write-ToastLog -Level Error -Message ('Error message: {0}' -f $_.Exception.Message)
+        Write-ToastLog -Level Error -Message ('Failed to create the {0} custom protocol in HKCU\Software\Classes. Action button might not work. Reason: {1}' -f $ActionType, $_.Exception.Message)
     }
 }
 
@@ -485,7 +502,9 @@ function Write-CustomActionScript {
                 $cmdFileName = '{0}.cmd' -f $Type
                 New-Item -Path $Path -Name $cmdFileName -Force -OutVariable pathInfo | Out-Null
                 $getCustomScriptPath = $pathInfo.FullName
-                $scriptContent = '{0}\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NoLogo -NonInteractive -NoProfile -WindowStyle Hidden -File {1}{2}{1}' -f $env:windir, [char]34, $psScriptPath
+
+                $scriptContent = '{0} -script {1}{2}{1}' -f $silentLauncherPath, [char]34, $psScriptPath
+
                 if (-not [string]::IsNullOrEmpty($scriptContent)) {
                     Out-File -FilePath $getCustomScriptPath -InputObject $scriptContent -Encoding ASCII -Force
                 }
@@ -980,6 +999,22 @@ if ($action2 -match '^ToastLearnMore:$') {
 
 $learnMoreUrl = if ($action2 -match '^ToastLearnMore:') {
     (($action2 -split ':')[1..$($action2.Length)]) -join ':'
+}
+#endregion
+
+#region download silent launcher
+if ($psScriptPath) {
+    if (-not (Test-Path -Path $silentLauncherPath)) {
+        Write-ToastLog -Level Error -Message ('Downloading {0}.exe from {1}' -f $silentLauncherName, $silentLauncherUrl)
+        try {
+            Invoke-WebRequest -Uri $silentLauncherUrl -OutFile $silentLauncherPath -UseBasicParsing -ErrorAction Stop
+        } catch {
+            if (-not (Test-Path -Path $silentLauncherPath)) {
+                Write-ToastLog -Level Error -Message ('Failed to download ''SilentLauncher.exe'' file. Reason: {0}' -f $Error[0].Exception.Message)
+            }
+        }
+        Unblock-File -Path $silentLauncherPath -ErrorAction SilentlyContinue -Confirm:$false
+    }
 }
 #endregion
 
