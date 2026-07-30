@@ -297,8 +297,8 @@ function Get-GivenName {
     .SYNOPSIS
         Retrieves the user given name.
     .DESCRIPTION
-        Attempts to get the user given name from Active Directory, falling back to registry data if AD
-        is unavailable.
+        Attempts to get the user given name from Active Directory using a native ADSI/LDAP query,
+        falling back to registry data if AD is unavailable.
     .EXAMPLE
         Get-GivenName
         Returns the given name of the logged on user.
@@ -309,12 +309,19 @@ function Get-GivenName {
 
     Write-ToastLog -Message 'Running Get-GivenName function'
     try {
-        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-        $principalContext = [System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain, [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain())
-        $givenName = ([System.DirectoryServices.AccountManagement.Principal]::FindByIdentity($principalContext, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, [Environment]::UserName)).GivenName
-        $principalContext.Dispose()
+        $searcher = [ADSISearcher]('(&(objectCategory=person)(objectClass=user)(sAMAccountName={0}))' -f [Environment]::UserName)
+        $null = $searcher.PropertiesToLoad.Add('givenName')
+        $result = $searcher.FindOne()
+        if ($null -ne $result) {
+            $givenNameProperty = $result.Properties['givenname']
+            if ($givenNameProperty.Count -gt 0) {
+                $givenName = [string]$givenNameProperty[0]
+            }
+        }
     } catch [System.Exception] {
         Write-ToastLog -Level Warn -Message ('{0}' -f $_)
+    } finally {
+        if ($null -ne $searcher) { $searcher.Dispose() }
     }
     if (-not [string]::IsNullOrEmpty($givenName)) {
         Write-ToastLog -Message ('Given name retrieved from Active Directory: {0}' -f $givenName)
@@ -361,16 +368,9 @@ function Get-ADPasswordExpiration {
     )
 
     Write-ToastLog -Message 'Running Get-ADPasswordExpiration function'
-    try {
-        Write-ToastLog -Message 'Looking up SamAccountName and DomainName in local Active Directory'
-        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-        $principalContext = [System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain, [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain())
-        $samAccountName = ([System.DirectoryServices.AccountManagement.Principal]::FindByIdentity($principalContext, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, [Environment]::UserName)).SamAccountName
-        $domainName = ([System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()).Name
-        $principalContext.Dispose()
-    } catch [System.Exception] {
-        Write-ToastLog -Level Error -Message ('{0}' -f $_)
-    }
+    Write-ToastLog -Message 'Getting SamAccountName and DomainName for the current user session'
+    $samAccountName = [Environment]::UserName
+    $domainName = $env:USERDNSDOMAIN
     if (($samAccountName) -and ($domainName)) {
         Write-ToastLog -Message ('SamAccountName found: {0} and DomainName found: {1}. Continuing looking for AD password expiration date' -f $samAccountName, $domainName)
         try {
@@ -403,7 +403,7 @@ function Get-ADPasswordExpiration {
             return @($false)
         }
     } else {
-        Write-ToastLog -Level Error -Message 'Failed to retrieve SamAccountName or DomainName from local Active Directory. Script is continuing, but password expiration date cannot be retrieved'
+        Write-ToastLog -Level Error -Message 'Failed to retrieve SamAccountName or DomainName from the current user session. Script is continuing, but password expiration date cannot be retrieved'
         return @($false)
     }
 }
@@ -682,6 +682,66 @@ function Register-CustomNotificationApp {
         Write-ToastLog -Message 'Toast Notifications are usually not displayed if the notification app does not exist' -Level Error
     }
 }
+
+function ConvertTo-ToastImageUri {
+    <#
+    .SYNOPSIS
+        Converts a raw image reference into a URI usable by toast notifications.
+    .DESCRIPTION
+        Normalizes an image reference into a URI. If the value is already an http, https, or file URL
+        it is returned unchanged. If it resolves to an existing local file it is converted to a file URI.
+        Otherwise the value is treated as a file name and appended to a default folder URI. Empty or
+        whitespace input returns nothing.
+    .PARAMETER Raw
+        The image reference to convert. Accepts an http/https/file URL, a local file path, or a bare
+        file name. Empty or whitespace input returns $null.
+    .PARAMETER DefaultFolderUri
+        The base folder URI used as a prefix when Raw is a bare file name that is neither a URL nor an
+        existing local path.
+    .EXAMPLE
+        ConvertTo-ToastImageUri -Raw 'C:\ProgramData\ToastNotification\logo.png'
+        Returns a file:/// URI pointing to the resolved local image path.
+    .EXAMPLE
+        ConvertTo-ToastImageUri -Raw 'logo.png' -DefaultFolderUri 'https://cdn.example.com/toast'
+        Returns 'https://cdn.example.com/toast/logo.png' when logo.png is not a URL or an existing local file.
+    #>
+    [CmdletBinding()]
+    [OutputType([String])]
+    param (
+        [Parameter()]
+        [String]$Raw,
+
+        [Parameter()]
+        [String]$DefaultFolderUri
+    )
+    if ([string]::IsNullOrWhiteSpace($Raw)) { return $null }
+    if ($Raw -match '^(https?|file)://') { return $Raw }
+    if ($Raw -match '^([A-Za-z]:[\\/]|\\\\)') {
+        if (Test-Path -LiteralPath $Raw) {
+            $p = (Resolve-Path -LiteralPath $Raw).Path -replace '\\', '/'
+            return $(if ($p -match '^//') { 'file:{0}' -f $p } else { 'file:///{0}' -f $p.TrimStart('/') })
+        }
+        Write-ToastLog -Level Warn -Message ('Image path not found on this machine; no image will be set: {0}' -f $Raw)
+        return $null
+    }
+    if (Test-Path -LiteralPath $Raw) {
+        $p = (Resolve-Path -LiteralPath $Raw).Path -replace '\\', '/'
+        return $(if ($p -match '^//') { 'file:{0}' -f $p } else { 'file:///{0}' -f $p.TrimStart('/') })
+    }
+    return ('{0}/{1}' -f $DefaultFolderUri, $Raw)
+}
+#endregion
+
+#region set tls policy
+$supportedTlsVersions = [enum]::GetValues('Net.SecurityProtocolType')
+if (($supportedTlsVersions -contains 'Tls13') -and ($supportedTlsVersions -contains 'Tls12')) {
+    [System.Net.ServicePointManager]::SecurityProtocol =
+    [Enum]::ToObject([Net.SecurityProtocolType], 12288) -bor
+    [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+} else {
+    [Net.ServicePointManager]::SecurityProtocol =
+    [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+}
 #endregion
 
 #region initialization
@@ -798,18 +858,8 @@ if (-not [string]::IsNullOrEmpty($xml)) {
         $customAudio = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CustomAudio' } | Select-Object -ExpandProperty 'Enabled'
         $logoImageFileName = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'LogoImageName' } | Select-Object -ExpandProperty 'Value'
         $heroImageFileName = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'HeroImageName' } | Select-Object -ExpandProperty 'Value'
-        if (($logoImageFileName -match [Regex]::Escape(':\'))) {
-            $logoImage = $logoImageFileName
-        }
-        if (($heroImageFileName -match [Regex]::Escape(':\'))) {
-            $heroImage = $heroImageFileName
-        }
-        if ((-not [string]::IsNullOrEmpty($logoImageFileName)) -and ([string]::IsNullOrEmpty($logoImage))) {
-            $logoImage = '{0}/{1}' -f $imagesPath, $logoImageFileName
-        }
-        if ((-not [string]::IsNullOrEmpty($heroImageFileName)) -and ([string]::IsNullOrEmpty($heroImage))) {
-            $heroImage = '{0}/{1}' -f $imagesPath, $heroImageFileName
-        }
+        $logoImage = ConvertTo-ToastImageUri -Raw $logoImageFileName -DefaultFolderUri $imagesPath
+        $heroImage = ConvertTo-ToastImageUri -Raw $heroImageFileName -DefaultFolderUri $imagesPath
         $scenario = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Scenario' } | Select-Object -ExpandProperty 'Type'
         $action1 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action1' } | Select-Object -ExpandProperty 'Value'
         $action2 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action2' } | Select-Object -ExpandProperty 'Value'
@@ -1038,41 +1088,39 @@ if ($limitToastToRunEveryMinutesEnabled -eq 'True') {
 
 if (($heroImageFileName.StartsWith('https://')) -or ($heroImageFileName.StartsWith('http://'))) {
     Write-ToastLog -Message 'ToastHeroImage appears to be hosted online. Will need to download the file'
-    try {
-        $testOnlineHeroImage = Invoke-WebRequest -Uri $heroImageFileName -UseBasicParsing
-    } catch {
-        $null
-    }
-    if ($testOnlineHeroImage.StatusDescription -eq 'OK') {
+    $ok = $false
+    try { if ((Invoke-WebRequest -Uri $heroImageFileName -UseBasicParsing).StatusDescription -eq 'OK') { $ok = $true } } catch { $null }
+    if ($ok) {
         try {
             Invoke-WebRequest -Uri $heroImageFileName -OutFile $heroImageTemp -UseBasicParsing
-            $heroImage = $heroImageTemp
+            $heroImage = ConvertTo-ToastImageUri -Raw $heroImageTemp -DefaultFolderUri $imagesPath
             Write-ToastLog -Message ('Successfully downloaded {0} from {1}' -f $heroImageTemp, $heroImageFileName)
         } catch {
             Write-ToastLog -Level Error -Message ('Failed to download the {0} from {1}' -f $heroImageTemp, $heroImageFileName)
+            $heroImage = ConvertTo-ToastImageUri -Raw 'ToastHeroImageDefault.jpg' -DefaultFolderUri $imagesPath
         }
     } else {
         Write-ToastLog -Level Error -Message ('The image supposedly located on {0} is not available' -f $heroImageFileName)
+        $heroImage = ConvertTo-ToastImageUri -Raw 'ToastHeroImageDefault.jpg' -DefaultFolderUri $imagesPath
     }
 }
 
 if (($logoImageFileName.StartsWith('https://')) -or ($logoImageFileName.StartsWith('http://'))) {
     Write-ToastLog -Message 'ToastLogoImage appears to be hosted online. Will need to download the file'
-    try {
-        $testOnlineLogoImage = Invoke-WebRequest -Uri $logoImageFileName -UseBasicParsing
-    } catch {
-        $null
-    }
-    if ($testOnlineLogoImage.StatusDescription -eq 'OK') {
+    $ok = $false
+    try { if ((Invoke-WebRequest -Uri $logoImageFileName -UseBasicParsing).StatusDescription -eq 'OK') { $ok = $true } } catch { $null }
+    if ($ok) {
         try {
             Invoke-WebRequest -Uri $logoImageFileName -OutFile $logoImageTemp -UseBasicParsing
-            $logoImage = $logoImageTemp
+            $logoImage = ConvertTo-ToastImageUri -Raw $logoImageTemp -DefaultFolderUri $imagesPath
             Write-ToastLog -Message ('Successfully downloaded {0} from {1}' -f $logoImageTemp, $logoImageFileName)
         } catch {
             Write-ToastLog -Level Error -Message ('Failed to download the {0} from {1}' -f $logoImageTemp, $logoImageFileName)
+            $logoImage = ConvertTo-ToastImageUri -Raw 'ToastLogoImageDefault.jpg' -DefaultFolderUri $imagesPath
         }
     } else {
         Write-ToastLog -Level Error -Message ('The image supposedly located on {0} is not available' -f $logoImageFileName)
+        $logoImage = ConvertTo-ToastImageUri -Raw 'ToastLogoImageDefault.jpg' -DefaultFolderUri $imagesPath
     }
 }
 
@@ -1086,12 +1134,12 @@ if ($createScriptsProtocolsEnabled -eq 'True') {
         if (((Get-Item -Path $registryPath -ErrorAction SilentlyContinue).Property -contains $registryName) -eq $true) {
             try {
                 Write-ToastLog -Message 'Creating scripts and protocols for the logged on user'
-                Write-CustomActionRegistry -ActionType ToastReboot
-                Write-CustomActionRegistry -ActionType ToastRunPSScript
-                Write-CustomActionRegistry -ActionType ToastLearnMore
-                Write-CustomActionScript -Type ToastReboot
-                Write-CustomActionScript -Type ToastRunPSScript
-                Write-CustomActionScript -Type ToastLearnMore
+                Write-CustomActionRegistry -ActionType 'ToastReboot'
+                Write-CustomActionRegistry -ActionType 'ToastRunPSScript'
+                Write-CustomActionRegistry -ActionType 'ToastLearnMore'
+                Write-CustomActionScript -Type 'ToastReboot'
+                Write-CustomActionScript -Type 'ToastRunPSScript'
+                Write-CustomActionScript -Type 'ToastLearnMore'
                 New-ItemProperty -Path $registryPath -Name $registryName -Value $scriptVersion -PropertyType 'String' -Force | Out-Null
             } catch {
                 Write-ToastLog -Level Error -Message 'Something failed during creation of custom scripts and protocols'
