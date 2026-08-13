@@ -487,7 +487,14 @@ function Write-CustomActionScript {
                 $cmdFileName = '{0}.cmd' -f $Type
                 New-Item -Path $Path -Name $cmdFileName -Force -OutVariable pathInfo | Out-Null
                 $getCustomScriptPath = $pathInfo.FullName
-                $scriptContent = 'shutdown /r /t 0 /d p:0:0 /c {0}Toast Notification Reboot{0}' -f [char]34
+                $rebootAppId = if ($customAppEnabled -eq 'True') {
+                    'Toast.Custom.App'
+                } else {
+                    '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+                }
+                $clearLine = 'C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command {1}$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]; [Windows.UI.Notifications.ToastNotificationManager]::History.Clear(''{0}''){1}' -f $rebootAppId, [char]34
+                $rebootLine = 'shutdown /r /t 10 /f /d p:0:0 /c {0}Toast Notification Reboot{0}' -f [char]34
+                $scriptContent = '{0}{1}{2}' -f $clearLine, [Environment]::NewLine, $rebootLine
                 if (-not [string]::IsNullOrEmpty($scriptContent)) {
                     Out-File -FilePath $getCustomScriptPath -InputObject $scriptContent -Encoding ASCII -Force
                 }
@@ -1053,18 +1060,19 @@ $learnMoreUrl = if ($action2 -match '^ToastLearnMore:') {
 #endregion
 
 #region download silent launcher
-if ($psScriptPath) {
-    if (-not (Test-Path -Path $silentLauncherPath)) {
-        Write-ToastLog -Level Error -Message ('Downloading {0}.exe from {1}' -f $silentLauncherName, $silentLauncherUrl)
-        try {
-            Invoke-WebRequest -Uri $silentLauncherUrl -OutFile $silentLauncherPath -UseBasicParsing -ErrorAction Stop
-        } catch {
-            if (-not (Test-Path -Path $silentLauncherPath)) {
-                Write-ToastLog -Level Error -Message ('Failed to download ''SilentLauncher.exe'' file. Reason: {0}' -f $Error[0].Exception.Message)
-            }
-        }
+$silentLauncherAvailable = Test-Path -Path $silentLauncherPath
+if (-not $silentLauncherAvailable) {
+    Write-ToastLog -Message ('Downloading {0}.exe from {1}' -f $silentLauncherName, $silentLauncherUrl)
+    try {
+        Invoke-WebRequest -Uri $silentLauncherUrl -OutFile $silentLauncherPath -UseBasicParsing -ErrorAction Stop
         Unblock-File -Path $silentLauncherPath -ErrorAction SilentlyContinue -Confirm:$false
+        $silentLauncherAvailable = Test-Path -Path $silentLauncherPath
+    } catch {
+        Write-ToastLog -Level Error -Message ('Failed to download SilentLauncher.exe. Reason: {0}' -f $_.Exception.Message)
     }
+}
+if (-not $silentLauncherAvailable) {
+    Write-ToastLog -Level Warn -Message 'SilentLauncher.exe unavailable. Registering protocols against the .cmd files directly; a console window may flash'
 }
 #endregion
 
