@@ -1,4 +1,4 @@
-﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
 <#
 .SYNOPSIS
     Displays customizable toast notifications on Windows 10/11 systems.
@@ -238,7 +238,7 @@ function Test-WindowsPushNotificationsEnabled {
         Write-ToastLog -Message 'Toast notifications for the logged on user are enabled in Windows'
         return $true
     } else {
-        Write-ToastLog -Level Error -Message 'Toast notifications for the logged on user are not enabled in Windows. The script will try to enable toast notifications for the logged on user'
+        Write-ToastLog -Level Warn -Message 'Toast notifications for the logged on user are not enabled in Windows. The script will try to enable toast notifications for the logged on user'
         return $false
     }
 }
@@ -264,7 +264,7 @@ function Enable-WindowsPushNotification {
         Get-Service -Name 'WpnUserService*' | Restart-Service -Force
         Write-ToastLog -Message 'Successfully enabled toast notifications for the logged on user'
     } catch {
-        Write-ToastLog -Level Error -Message 'Failed to enable toast notifications for the logged on user. Toast notifications will probably not be displayed'
+        Write-ToastLog -Level Warn -Message 'Failed to enable toast notifications for the logged on user. Toast notifications will probably not be displayed'
     }
 }
 
@@ -493,7 +493,7 @@ function Write-CustomActionScript {
                     '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
                 }
                 $clearLine = 'C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command {1}$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]; [Windows.UI.Notifications.ToastNotificationManager]::History.Clear(''{0}''){1}' -f $rebootAppId, [char]34
-                $rebootLine = 'shutdown /r /t 10 /f /d p:0:0 /c {0}Toast Notification Reboot{0}' -f [char]34
+                $rebootLine = 'shutdown /r /t 0 /f /d p:0:0 /c {0}Scheduled System Restart{0}' -f [char]34
                 $scriptContent = '{0}{1}{2}' -f $clearLine, [Environment]::NewLine, $rebootLine
                 if (-not [string]::IsNullOrEmpty($scriptContent)) {
                     Out-File -FilePath $getCustomScriptPath -InputObject $scriptContent -Encoding ASCII -Force
@@ -844,40 +844,40 @@ if ($Config.StartsWith('https://') -or $Config.StartsWith('http://')) {
 if (-not [string]::IsNullOrEmpty($xml)) {
     try {
         Write-ToastLog -Message ('Loading xml content from {0} into variables' -f $Config)
-        $toastEnabled = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'Toast' } | Select-Object -ExpandProperty 'Enabled'
-        $pendingRebootUptime = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'PendingRebootUptime' } | Select-Object -ExpandProperty 'Enabled'
-        $pendingRebootCheck = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'PendingRebootCheck' } | Select-Object -ExpandProperty 'Enabled'
-        $aDPasswordExpiration = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpiration' } | Select-Object -ExpandProperty 'Enabled'
-        $pendingRebootUptimeTextEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'PendingRebootUptimeText' } | Select-Object -ExpandProperty 'Enabled'
-        $maxUptimeDays = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'MaxUptimeDays' } | Select-Object -ExpandProperty 'Value'
-        $pendingRebootCheckTextEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'PendingRebootCheckText' } | Select-Object -ExpandProperty 'Enabled'
-        $aDPasswordExpirationTextEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpirationText' } | Select-Object -ExpandProperty 'Enabled'
-        $aDPasswordExpirationDays = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpirationDays' } | Select-Object -ExpandProperty 'Value'
-        $deadlineEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Deadline' } | Select-Object -ExpandProperty 'Enabled'
-        $deadlineContent = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Deadline' } | Select-Object -ExpandProperty 'Value'
-        $dynDeadlineEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'DynamicDeadline' } | Select-Object -ExpandProperty 'Enabled'
-        $createScriptsProtocolsEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CreateScriptsAndProtocols' } | Select-Object -ExpandProperty 'Enabled'
-        $limitToastToRunEveryMinutesEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'LimitToastToRunEveryMinutes' } | Select-Object -ExpandProperty 'Enabled'
-        $limitToastToRunEveryMinutesValue = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'LimitToastToRunEveryMinutes' } | Select-Object -ExpandProperty 'Value'
-        $customAppEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CustomNotificationApp' } | Select-Object -ExpandProperty 'Enabled'
-        $customAppValue = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CustomNotificationApp' } | Select-Object -ExpandProperty 'Value'
-        $psAppStatus = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'UsePowershellApp' } | Select-Object -ExpandProperty 'Enabled'
-        $customAudio = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CustomAudio' } | Select-Object -ExpandProperty 'Enabled'
-        $logoImageFileName = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'LogoImageName' } | Select-Object -ExpandProperty 'Value'
-        $heroImageFileName = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'HeroImageName' } | Select-Object -ExpandProperty 'Value'
+        $toastEnabled = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'Toast' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $pendingRebootUptime = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'PendingRebootUptime' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $pendingRebootCheck = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'PendingRebootCheck' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $aDPasswordExpiration = $xml.Configuration.Feature | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpiration' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $pendingRebootUptimeTextEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'PendingRebootUptimeText' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $maxUptimeDays = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'MaxUptimeDays' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $pendingRebootCheckTextEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'PendingRebootCheckText' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $aDPasswordExpirationTextEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpirationText' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $aDPasswordExpirationDays = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpirationDays' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $deadlineEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Deadline' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $deadlineContent = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Deadline' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $dynDeadlineEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'DynamicDeadline' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $createScriptsProtocolsEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CreateScriptsAndProtocols' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $limitToastToRunEveryMinutesEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'LimitToastToRunEveryMinutes' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $limitToastToRunEveryMinutesValue = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'LimitToastToRunEveryMinutes' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $customAppEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CustomNotificationApp' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $customAppValue = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CustomNotificationApp' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $psAppStatus = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'UsePowershellApp' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $customAudio = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'CustomAudio' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $logoImageFileName = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'LogoImageName' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $heroImageFileName = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'HeroImageName' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
         $logoImage = ConvertTo-ToastImageUri -Raw $logoImageFileName -DefaultFolderUri $imagesPath
         $heroImage = ConvertTo-ToastImageUri -Raw $heroImageFileName -DefaultFolderUri $imagesPath
-        $scenario = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Scenario' } | Select-Object -ExpandProperty 'Type'
-        $action1 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action1' } | Select-Object -ExpandProperty 'Value'
-        $action2 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action2' } | Select-Object -ExpandProperty 'Value'
-        $action3 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action3' } | Select-Object -ExpandProperty 'Value'
-        $greetGivenName = $xml.Configuration.Text | Where-Object -FilterScript { $_.Option -like 'GreetGivenName' } | Select-Object -ExpandProperty 'Enabled'
-        $multiLanguageSupport = $xml.Configuration.Text | Where-Object -FilterScript { $_.Option -like 'MultiLanguageSupport' } | Select-Object -ExpandProperty 'Enabled'
-        $actionButton1Enabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ActionButton1' } | Select-Object -ExpandProperty 'Enabled'
-        $actionButton2Enabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ActionButton2' } | Select-Object -ExpandProperty 'Enabled'
-        $actionButton3Enabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ActionButton3' } | Select-Object -ExpandProperty 'Enabled'
-        $dismissButtonEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'DismissButton' } | Select-Object -ExpandProperty 'Enabled'
-        $snoozeButtonEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'SnoozeButton' } | Select-Object -ExpandProperty 'Enabled'
+        $scenario = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Scenario' } | Select-Object -ExpandProperty 'Type' -ErrorAction SilentlyContinue
+        $action1 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action1' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $action2 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action2' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $action3 = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'Action3' } | Select-Object -ExpandProperty 'Value' -ErrorAction SilentlyContinue
+        $greetGivenName = $xml.Configuration.Text | Where-Object -FilterScript { $_.Option -like 'GreetGivenName' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $multiLanguageSupport = $xml.Configuration.Text | Where-Object -FilterScript { $_.Option -like 'MultiLanguageSupport' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $actionButton1Enabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ActionButton1' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $actionButton2Enabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ActionButton2' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $actionButton3Enabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'ActionButton3' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $dismissButtonEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'DismissButton' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
+        $snoozeButtonEnabled = $xml.Configuration.Option | Where-Object -FilterScript { $_.Name -like 'SnoozeButton' } | Select-Object -ExpandProperty 'Enabled' -ErrorAction SilentlyContinue
         if ($multiLanguageSupport -eq 'True') {
             Write-ToastLog -Message ('MultiLanguageSupport set to True. Current language culture is {0}. Checking for language support' -f $userCulture)
             if (-not [string]::IsNullOrEmpty($xml.Configuration.$userCulture)) {
@@ -890,30 +890,30 @@ if (-not [string]::IsNullOrEmpty($xml)) {
         } else {
             $xmlLang = $xml.Configuration.$defaultUserCulture
         }
-        $pendingRebootUptimeTextValue = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'PendingRebootUptimeText' } | Select-Object -ExpandProperty '#text'
-        $pendingRebootCheckTextValue = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'PendingRebootCheckText' } | Select-Object -ExpandProperty '#text'
-        $aDPasswordExpirationTextValue = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpirationText' } | Select-Object -ExpandProperty '#text'
-        $customAudioTextToSpeech = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'CustomAudioTextToSpeech' } | Select-Object -ExpandProperty '#text'
-        $actionButton1Content = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ActionButton1' } | Select-Object -ExpandProperty '#text'
-        $actionButton2Content = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ActionButton2' } | Select-Object -ExpandProperty '#text'
-        $actionButton3Content = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ActionButton3' } | Select-Object -ExpandProperty '#text'
-        $dismissButtonContent = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'DismissButton' } | Select-Object -ExpandProperty '#text'
-        $snoozeButtonContent = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'SnoozeButton' } | Select-Object -ExpandProperty '#text'
-        $attributionText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'AttributionText' } | Select-Object -ExpandProperty '#text'
-        $headerText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'HeaderText' } | Select-Object -ExpandProperty '#text'
-        $titleText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'TitleText' } | Select-Object -ExpandProperty '#text'
-        $bodyText1 = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'BodyText1' } | Select-Object -ExpandProperty '#text'
-        $bodyText2 = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'BodyText2' } | Select-Object -ExpandProperty '#text'
-        $snoozeText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'SnoozeText' } | Select-Object -ExpandProperty '#text'
-        $deadlineText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'DeadlineText' } | Select-Object -ExpandProperty '#text'
-        $greetMorningText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'GreetMorningText' } | Select-Object -ExpandProperty '#text'
-        $greetAfternoonText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'GreetAfternoonText' } | Select-Object -ExpandProperty '#text'
-        $greetEveningText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'GreetEveningText' } | Select-Object -ExpandProperty '#text'
-        $minutesText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'MinutesText' } | Select-Object -ExpandProperty '#text'
-        $hourText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'HourText' } | Select-Object -ExpandProperty '#text'
-        $hoursText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'HoursText' } | Select-Object -ExpandProperty '#text'
-        $computerUptimeText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ComputerUptimeText' } | Select-Object -ExpandProperty '#text'
-        $computerUptimeDaysText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ComputerUptimeDaysText' } | Select-Object -ExpandProperty '#text'
+        $pendingRebootUptimeTextValue = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'PendingRebootUptimeText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $pendingRebootCheckTextValue = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'PendingRebootCheckText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $aDPasswordExpirationTextValue = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ADPasswordExpirationText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $customAudioTextToSpeech = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'CustomAudioTextToSpeech' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $actionButton1Content = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ActionButton1' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $actionButton2Content = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ActionButton2' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $actionButton3Content = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ActionButton3' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $dismissButtonContent = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'DismissButton' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $snoozeButtonContent = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'SnoozeButton' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $attributionText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'AttributionText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $headerText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'HeaderText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $titleText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'TitleText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $bodyText1 = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'BodyText1' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $bodyText2 = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'BodyText2' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $snoozeText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'SnoozeText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $deadlineText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'DeadlineText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $greetMorningText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'GreetMorningText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $greetAfternoonText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'GreetAfternoonText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $greetEveningText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'GreetEveningText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $minutesText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'MinutesText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $hourText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'HourText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $hoursText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'HoursText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $computerUptimeText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ComputerUptimeText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
+        $computerUptimeDaysText = $xmlLang.Text | Where-Object -FilterScript { $_.Name -like 'ComputerUptimeDaysText' } | Select-Object -ExpandProperty '#text' -ErrorAction SilentlyContinue
         Write-ToastLog -Message ('Successfully loaded xml content from {0}' -f $Config)
     } catch {
         Write-ToastLog -Message ('Xml content from {0} was not loaded properly. Reason: {1}' -f $Config, $_.Exception.Message)
@@ -1253,6 +1253,11 @@ if ($dismissEnabled) {
 
 $actionsSection = $actionsXml -join [Environment]::NewLine
 
+if ($scenario -eq 'reminder' -and $action1 -match 'ToastReboot') {
+    Write-ToastLog -Message 'Reboot button is enabled with reminder scenario. Changing scenario to incomingCall to prevent post-reboot resurfacing.' -Level Warn
+    $scenario = 'incomingCall'
+}
+
 Write-ToastLog -Message 'Creating the xml for enabled action buttons'
 [xml]$Toast = @'
 <toast scenario={0}{1}{0}>
@@ -1429,3 +1434,206 @@ if ($action2Enabled) {
     }
 }
 #endregion
+# SIG # Begin signature block
+# MIIlnQYJKoZIhvcNAQcCoIIljjCCJYoCAQExDzANBglghkgBZQMEAgEFADB5Bgor
+# BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBhRF8fHkt+8TxT
+# 1uiHDWNNOa69BMOgpzhcwwR5+YXqFqCCEucwggXdMIIDxaADAgECAgh7LJvTFoAy
+# mTANBgkqhkiG9w0BAQsFADB8MQswCQYDVQQGEwJVUzEOMAwGA1UECAwFVGV4YXMx
+# EDAOBgNVBAcMB0hvdXN0b24xGDAWBgNVBAoMD1NTTCBDb3Jwb3JhdGlvbjExMC8G
+# A1UEAwwoU1NMLmNvbSBSb290IENlcnRpZmljYXRpb24gQXV0aG9yaXR5IFJTQTAe
+# Fw0xNjAyMTIxNzM5MzlaFw00MTAyMTIxNzM5MzlaMHwxCzAJBgNVBAYTAlVTMQ4w
+# DAYDVQQIDAVUZXhhczEQMA4GA1UEBwwHSG91c3RvbjEYMBYGA1UECgwPU1NMIENv
+# cnBvcmF0aW9uMTEwLwYDVQQDDChTU0wuY29tIFJvb3QgQ2VydGlmaWNhdGlvbiBB
+# dXRob3JpdHkgUlNBMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA+Q/d
+# oyt9y9Aq/uxnhabnLhu6d+Hj9a+k7PpKXZHEV0drGHdrdvL9k+Q9D8IWngtmw1aU
+# nheDhc5W7/IW/QBi9SIJVOhlF05BueBPRpeqG8i4bmJeabFf2yoCfvxsyvNB2O3Q
+# 6Pw/YUjtsAMUHRAOSxngu07shmX/NvNeZwILnYZVYf16OO3+4hkAt2+hUGJ1dDyg
+# +sglkrRueiLH+B6h47LdkTGrKx0E/6VKBDfphaQzK/3i1lU0fBmkSmjHsqjTt8qh
+# k4jrwZe8jPkd2SKEJHTHBD1qqSmTzOu4W+H+XyWqNFjIwSNUnRuYEcM4nH49hmyl
+# D0CGfAL0XAJPKMuucZ8POsgz/hElNer8usVgPdl8GNWyqdN1eANyIso6wx/vLOUu
+# qfqeLLZRRv2vA9bqYGjqhRY2a4XpHsCz3cQk3IAqgUFtlD7I4MmBQQCeXr9/xQiY
+# ohgsQkCz+W84J0tOgPQ9gUfgiHzqHM61dVxRLhwrfxpyKOcAtdF0xtfkn60Hk7ZT
+# NTX8N+TD9l0WviFz3pIK+KBjaryWkmo++LxlVZve9Q2JJgT8JRqmJWnLwm3KfOJZ
+# X5es6+8uyLzXG1k8K8zyGciTaydjGc/86Sb4ynGbf5P+NGeETpnr/LN4CTNwumam
+# du0bc+sapQ3EIhMglFYKTixsTrH9z5wJuqIz7YcCAwEAAaNjMGEwHQYDVR0OBBYE
+# FN0ECQei9Xp9UlMSkpXuOIAlDaZZMA8GA1UdEwEB/wQFMAMBAf8wHwYDVR0jBBgw
+# FoAU3QQJB6L1en1SUxKSle44gCUNplkwDgYDVR0PAQH/BAQDAgGGMA0GCSqGSIb3
+# DQEBCwUAA4ICAQAgGBGUKfsmnRweHnBh8ZVyk3EkrWiTWI4yrxuzcAP8JSt0hZA9
+# eGr0uYullzu1GJG7Hqf5QFuR+VWZrx4R0Fwdp2bjsZQHDDI5puobsHnYHZxwROOK
+# 3cT5lR+KOEM/AYWlR6c9RrK85SJo93uc2Cw+CiHILTOsv8WBmTF0wXVxxb6x8CNF
+# 9J1r/BljnaO8BMYYCyW7U4kPs4BQ3kXuRH+rlHhkmNP2KN2H2HBldPsOuRPrpw9h
+# qTKWzN677WNMGLupQPegVG4giHF1GOp6tDRy4CMnd1y2kOqGJUCr7zMPy5+CvqIg
+# +/a1LRrmwoWxdA/7yGUCpFIBR91JIsG/2OtrrH7e7GMzFbcjCI/GD41BWt2OxbmP
+# 5UU/eNu60htAsf5xTT/ggaK6XrTsFeCT3QgffuFVmQsh3pOeCvvmo0m9NjD+53ey
+# oHWXtS2BiBdlIPfakACfyVLMMso1fPU9D9gr1/UmbMkGNJYW6nBZGjJ5eQu2iH8P
+# Ukg9v2zYokQu0U63cljTiROV/kSr+NeLG26cvCygW9VqAK9fN+HV+hALmJyG5yaP
+# zvDsbopXC4DjTrLAoGNhkLpVaDd0araS25+hhiK2ZScO7LafQmDkZ8K12kELxNOL
+# YRu8+h+RK9dEB166KazZxenvU0ha64DxKFghzbAGVfsnP1OQcKkEHlcnuTCCBnIw
+# ggRaoAMCAQICCGQzUdPHOJ8IMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAlVT
+# MQ4wDAYDVQQIDAVUZXhhczEQMA4GA1UEBwwHSG91c3RvbjEYMBYGA1UECgwPU1NM
+# IENvcnBvcmF0aW9uMTEwLwYDVQQDDChTU0wuY29tIFJvb3QgQ2VydGlmaWNhdGlv
+# biBBdXRob3JpdHkgUlNBMB4XDTE2MDYyNDIwNDQzMFoXDTMxMDYyNDIwNDQzMFow
+# eDELMAkGA1UEBhMCVVMxDjAMBgNVBAgMBVRleGFzMRAwDgYDVQQHDAdIb3VzdG9u
+# MREwDwYDVQQKDAhTU0wgQ29ycDE0MDIGA1UEAwwrU1NMLmNvbSBDb2RlIFNpZ25p
+# bmcgSW50ZXJtZWRpYXRlIENBIFJTQSBSMTCCAiIwDQYJKoZIhvcNAQEBBQADggIP
+# ADCCAgoCggIBAJ+DE3OqsMZtIcvbi3qHdNBx3I6Xcprku4g0tN2AA8YvRaR0mr8e
+# D1Dqnm1485/6USapPZ3RspRXPvs5iRuRK1bvZ8vmC+MOOYzGNfSMPd0l6QGsF0J9
+# WBZA3PnVKEQdlWQwYTpk8pfXc0x9eyMCbfN161U9b6otxK++dKxd/mq2/OpceekP
+# Q5y1UgUP7z6xsY/QSa2m40IZVD/zLw6hy3z+E/kjOdolHLg+AEo6bzIwN2Qex651
+# B9hV0hjJDoq8o1zwfAqnhYHCDq+PmVzTYCW8g1ppHCUTzXL165yAm9wsZ8TdyQmY
+# 1XPrxCGj5TKOPi9SmMZgN2SMsm9KVHIYzCeH+s11omMhTLU9ZP0rpptVryZMYLS5
+# XP6rQ72t0BNmUB8L0omm/9eABvHDEQIzM2EX91Yfji87aOcV8XdWSimeA9rCKyZh
+# MlugVuVJKY02p/XHUqJWAyAvOHiAvfYGrkE0y5RFvZvHiRgfC7r/qa5qQJkT3e9Q
+# 3wG68gTW0DHfNDheV1vIOB5W1KxIpu3/+bjBO+3CJL5EYKd3zdU9mFm0Q+qqYH3N
+# wuUv8ev11CDVlzRuXQRrBRHS05KMCSdE7U81MUZ+dBkFYuyJ4+ojcJjk0S/UihMY
+# RpNl5Vhz00w9J3oiP8P4o1W3+eaHguxFHsVuOnyxTrmraPebY9WRQbypAgMBAAGj
+# gfswgfgwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBTdBAkHovV6fVJTEpKV
+# 7jiAJQ2mWTAwBggrBgEFBQcBAQQkMCIwIAYIKwYBBQUHMAGGFGh0dHA6Ly9vY3Nw
+# cy5zc2wuY29tMBEGA1UdIAQKMAgwBgYEVR0gADATBgNVHSUEDDAKBggrBgEFBQcD
+# AzA7BgNVHR8ENDAyMDCgLqAshipodHRwOi8vY3Jscy5zc2wuY29tL3NzbC5jb20t
+# cnNhLVJvb3RDQS5jcmwwHQYDVR0OBBYEFFTC/hCVAJPNavXnwNfZsku4jwzjMA4G
+# A1UdDwEB/wQEAwIBhjANBgkqhkiG9w0BAQsFAAOCAgEA9Q8mh3CvmaLK9dbJ8I1m
+# PTmC04gj2IK/j1SEJ7bTgwfXnieJTYSOVNEg7mBD21dCPMewlfa+zOqjPY5PBsYr
+# WYZ/63MbyuVAJuA9b8z2vXHGzX0OIEA51gXSr5QIv3/CUbcrtXuDIfBj2uWc4Wku
+# dR1Oy2Ee9aUz3wKdFdntaZNXukZFLoC8Zb7nEj7eR/+QnBCt9laypNT61vwuvJch
+# s3aD0pH6BlDRsYAogP7brQ9n7fh93NlwW3q6aLWzSmYXj+fw51fdaf68XuHVjJ8T
+# u5WaFft5K4XVbT5nR24bB1z7VEUPFhEuEcOwvLVuHDNXlB7+QjRGjjFQTtszV5X6
+# OOTmEturWC5Ft9kiyvRaR0ksKOhPjEI8ZGjp5kOsGZGpxxOCX/xxCje3nVB7PF33
+# olKCNeS159MKb2v+jfmk19UdS+d9Ygj42desmUnbtYRBFC72LmCXU0ua/vGIenS6
+# nnXp4NqnycwsO3tMCnjPlPc2YLaDPIpUy04NaCqUEXUmFOogN8zreRd2VXhxbeJJ
+# ODM32+RsWccjYua8zi5US/1eAyrI3R5LcUTQdT4xYmWLKabtJOF6HYQ0f6QXfLSs
+# fT81WMvDvxrdn1RWbUXlU/OIiisxo8o+UNEANOwnCMNnxlzoaL/PLhZluDxm/zuy
+# lauajZ3MlPDteFB/7GRHo50wggaMMIIEdKADAgECAhAh6vUmC8Q8FWUopUUBLE8v
+# MA0GCSqGSIb3DQEBCwUAMHgxCzAJBgNVBAYTAlVTMQ4wDAYDVQQIDAVUZXhhczEQ
+# MA4GA1UEBwwHSG91c3RvbjERMA8GA1UECgwIU1NMIENvcnAxNDAyBgNVBAMMK1NT
+# TC5jb20gQ29kZSBTaWduaW5nIEludGVybWVkaWF0ZSBDQSBSU0EgUjEwHhcNMjYw
+# ODExMTM0MjQyWhcNMjcwODEwMTM0MjQyWjBzMQswCQYDVQQGEwJVUzEQMA4GA1UE
+# CAwHRmxvcmlkYTEaMBgGA1UEBwwRQWx0YW1vbnRlIFNwcmluZ3MxFDASBgNVBAoM
+# C1Byb1ZhbCBUZWNoMSAwHgYDVQQDDBdQcm92YWwgVGVjaG5vbGdpZXMsIEluYzCC
+# AaIwDQYJKoZIhvcNAQEBBQADggGPADCCAYoCggGBAOFny4xuSScGqNDS9J4Ng+4r
+# Ue3bxtcdPHQAvHWXWtgezNUVSg021J8/ZaKM2SSpQJdmX8EpN4pOXNgxkpc1fyKT
+# azKZFk0Ex1mWlvXUc2zZPvjVOxKEUC34JGHA4ngKxzSjtvvbgGMTNg5oegVpNZZy
+# gbRYxVr8EVGIMwp8jQUW3KqfRLIA9fX3gRfC4trEiBQHATYtIJxOu2KV3f5SQ3GQ
+# UoPbuf7hlJR19a/4X1NcUFfnbHaaIX27AMHRmw2Xpz5plFA03rbzQScAf679fJqN
+# L6hb3/bruXl8ZbyccQYNIwPvVETrUanXRraH+ab3oxZUfvF7TpjI1IoIn3AuFonx
+# pznA03Ml9eQhU4VIgxLtPe1UQxXh7Q9wv5/bo71RGqmo8Gx6ks0HV3JMPwm91dgo
+# WYtZkvxuc151PQlZSi7bHVZM8XJyqtZq2xsFXmQJtzn+D0/OaZVW1+dhy8q1ZQ69
+# py/8uSZZiHRg+WTaqvsnOJjQfgydnjgo7MFckmWXzwIDAQABo4IBlTCCAZEwDAYD
+# VR0TAQH/BAIwADAfBgNVHSMEGDAWgBRUwv4QlQCTzWr158DX2bJLuI8M4zB6Bggr
+# BgEFBQcBAQRuMGwwSAYIKwYBBQUHMAKGPGh0dHA6Ly9jZXJ0LnNzbC5jb20vU1NM
+# Y29tLVN1YkNBLUNvZGVTaWduaW5nLVJTQS00MDk2LVIxLmNlcjAgBggrBgEFBQcw
+# AYYUaHR0cDovL29jc3BzLnNzbC5jb20wUQYDVR0gBEowSDAIBgZngQwBBAEwPAYM
+# KwYBBAGCqTABAwMBMCwwKgYIKwYBBQUHAgEWHmh0dHBzOi8vd3d3LnNzbC5jb20v
+# cmVwb3NpdG9yeTATBgNVHSUEDDAKBggrBgEFBQcDAzBNBgNVHR8ERjBEMEKgQKA+
+# hjxodHRwOi8vY3Jscy5zc2wuY29tL1NTTGNvbS1TdWJDQS1Db2RlU2lnbmluZy1S
+# U0EtNDA5Ni1SMS5jcmwwHQYDVR0OBBYEFB2V1gGPcQjIf/gJtOW3SyAGpK9kMA4G
+# A1UdDwEB/wQEAwIHgDANBgkqhkiG9w0BAQsFAAOCAgEAB163rlUknh/QVZh9wSHM
+# X9cGN+H9yWmNbHypDzs8jfthh8OA6El/TUbwGSNb9iNxdDMMG3yMeIR+H20gcZUX
+# yRHcaGMr1WeJjPz/goB1nJ2mu3NNjABiwJwSCnFwJHhcnTD9kQ6/P52WJGgXjtCG
+# C3Ibgq2+YxnZPnQwDMRO5kbFnYCU3t18Ctr0xjkyqdRDLXjE63AF6IIpQh9aTRus
+# 7kB9x4vVfEAkOWN1qEvP+Iwg3eOix0Hjan6ZWlyuB1yI5HJFvWG2UeES/rUnIrI9
+# XtJ94lm81LzPmfBNEPB1eNBQtnMZIU1A0r2BE7UWI4NJoY0l4xaW6D/lhF6HU2v2
+# fxSKxH4bKL00NbxskRb/S5TIJSmytg/tddsP5o/Cbi8uuLaZKfGPW2AXugR+avy6
+# 5yYOsB1K20jdtNwqbuBOU2qfBtUBlb+NqC707AxUdBPR3iZkG8dgl616alk7tjnv
+# O1e5NicyZg1h/4lyMgLcCy1rYPxlcjRJTyqtlPme3zbBPFJjUU7jTZClyo1OCLXE
+# hkagn6xFQUHZT90wt8ckIzS6AmcUF1fdTdPTGp3tTQKO950uLd9B+uiIFjaQyPBd
+# LPJtQ/loVE0MV/kZGDmmkVd7G9vOVNY665FM60wrrwRFD3xKWKgOkyWAKNPWZ3yx
+# Jmb2YXppnrPnznRIeFwefR8xghIMMIISCAIBATCBjDB4MQswCQYDVQQGEwJVUzEO
+# MAwGA1UECAwFVGV4YXMxEDAOBgNVBAcMB0hvdXN0b24xETAPBgNVBAoMCFNTTCBD
+# b3JwMTQwMgYDVQQDDCtTU0wuY29tIENvZGUgU2lnbmluZyBJbnRlcm1lZGlhdGUg
+# Q0EgUlNBIFIxAhAh6vUmC8Q8FWUopUUBLE8vMA0GCWCGSAFlAwQCAQUAoIGvMBQG
+# CisGAQQBgjcCAQwxBjAEoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAc
+# BgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAtBgkqhkiG9w0BCTQxIDAeMA0G
+# CWCGSAFlAwQCAQUAoQ0GCSqGSIb3DQEBCwUAMC8GCSqGSIb3DQEJBDEiBCBvsSxS
+# Agf5eWbYfBDfvLrmUrwXsreh2Qjwro26pj+FNzANBgkqhkiG9w0BAQsFAASCAYCn
+# dPxL+99JB/XpDFtKO9A5ibYHGv4q2zf2PppZynL7BbSKxdT++NNNVHyuquFs0rEl
+# HSCZpuU8o+VDgV/ugr2pddej87VVZC0gURyhiWNLuZry1LOJob46yZAZu3w6/FWw
+# rV7sFt6CUphTweWl7XGJkDbE2Au6KPNds+WQpUp87wE4/QhbdiMZo4v8YDdVWW6W
+# hFx207Qj0I4jZ8AYGuvMUXDeGKuU8dPCBtzwp4TLiOwzoWJ2sdkFWUGHwMNIi+1F
+# CDEc04XXeUExGzo5b9l74DEgZet6H8ESkbQc/o27R4Io7U+rIRGNPP1BjvDihM8M
+# /kCno26Zsxr6N4yKVeJ+iKpPzDvG1NM/JKdnUBThrmaWV3zhHgzr04Bld6INafiX
+# LLRstzz8pMB0nQQnbl7bR9PLZycQF0P2vP+qt0E3AvMbalYcxj8b6kN6T2qa2WTV
+# 8kSNpBNQDnbOlEcjR5VjjFuBWjxAVGRD+sVpkf/Ubg5qsl2Q9D/5eUkLy3eVHQKh
+# gg8eMIIPGgYKKwYBBAGCNwMDATGCDwowgg8GBgkqhkiG9w0BBwKggg73MIIO8wIB
+# AzENMAsGCWCGSAFlAwQCATB/BgsqhkiG9w0BCRABBKBwBG4wbAIBAQYMKwYBBAGC
+# qTABAwYBMDEwDQYJYIZIAWUDBAIBBQAEIELW+K35MDLiPDnmFgaeH/4ZQwZckN/h
+# LJqlObXlc+/pAggx/F4UzrVT6BgPMjAyNjA4MTQxNzIzNDVaMAMCAQECBgGgAU0b
+# YqCCDAAwggT8MIIC5KADAgECAhAfaxZi0i4bbF3xwMGgYA44MA0GCSqGSIb3DQEB
+# CwUAMHMxCzAJBgNVBAYTAlVTMQ4wDAYDVQQIDAVUZXhhczEQMA4GA1UEBwwHSG91
+# c3RvbjERMA8GA1UECgwIU1NMIENvcnAxLzAtBgNVBAMMJlNTTC5jb20gVGltZXN0
+# YW1waW5nIElzc3VpbmcgUlNBIENBIFIxMB4XDTI1MDIxODE2MzIwMloXDTM0MTEx
+# MjE4NTAwNVowbjELMAkGA1UEBhMCVVMxDjAMBgNVBAgMBVRleGFzMRAwDgYDVQQH
+# DAdIb3VzdG9uMREwDwYDVQQKDAhTU0wgQ29ycDEqMCgGA1UEAwwhU1NMLmNvbSBU
+# aW1lc3RhbXBpbmcgVW5pdCAyMDI1IEUxMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcD
+# QgAEG/tRUcdv5lWW7E9eV8Tczq2DReerx2Jz47e884JGlqVQzW870D4ZHNJVWPLK
+# AeFisHDrZcsWHWS/t77JF39pNqOCAVowggFWMB8GA1UdIwQYMBaAFAydECWOmqcb
+# mYdDzwh+4b2BkPTPMFEGCCsGAQUFBwEBBEUwQzBBBggrBgEFBQcwAoY1aHR0cDov
+# L2NlcnQuc3NsLmNvbS9TU0wuY29tLXRpbWVTdGFtcGluZy1JLVJTQS1SMS5jZXIw
+# UQYDVR0gBEowSDA8BgwrBgEEAYKpMAEDBgEwLDAqBggrBgEFBQcCARYeaHR0cHM6
+# Ly93d3cuc3NsLmNvbS9yZXBvc2l0b3J5MAgGBmeBDAEEAjAWBgNVHSUBAf8EDDAK
+# BggrBgEFBQcDCDBGBgNVHR8EPzA9MDugOaA3hjVodHRwOi8vY3Jscy5zc2wuY29t
+# L1NTTC5jb20tdGltZVN0YW1waW5nLUktUlNBLVIxLmNybDAdBgNVHQ4EFgQUznzZ
+# wASAxSQQagnqHKslPRH9qNIwDgYDVR0PAQH/BAQDAgeAMA0GCSqGSIb3DQEBCwUA
+# A4ICAQCAc3Ukhb1mU2KnTsV9j2vUsnAspOXWH/L2vUGMOAcwTPtTsnuYDLfYnEDU
+# ovKMIImo2S5F+EMcYUR9m2NM6u7sBAwNIOJQO8IJzeNrPmnL2Ma/Ah7memQttepe
+# ED5KoLMbvX1RKKDCEeRivu/w2JehpjRe7TenQGJlmt5mWmeCYYH37zo33gWogXHY
+# jlnmK67t3iPtoA5kE3F9T2MUMggYO1Z9Z4KkXRDyssT/cMcOXMkqzkiXeL9Wg6Xu
+# tNT3fyhKvEzDDDoYMGUpfysYfG+SOAhv0xeRWCUlIMew0BkN4JL+KdrEocD4KG4H
+# wrg7EjFrqTV754cHKlqQBjfC43vDs+U+aE3qTkh2pmfcdkezZWOhHzjVn3CZU8V0
+# YN2QFntc6Zvk5lRoq5+y+0RHRVtjYOTNqoBoi23WRz4j4VTPs+JXPY9TOl6CR+1F
+# HG+s/IgvTxuUlOdsxDReuoM3SsR+5Mu/heGGcrIlpeHEJR2M79xG6YzNnflBNQwi
+# 0FbLXEanSLKgVWcDJrak+xUy4Aj6zLXPGU5L2XmJLG8onyCmek6COphNru7V7Jmj
+# 7gmVwaiKJHXsu2ExOsXWrra07nE6kjy3FRnqC0oa2QlXrB2P69ktzApnYz3capWk
+# 6jpQGUaPHWwqxVnsAhTMlmWLg0nQzYphyt82eV5uRgqkOdKpbDCCBvwwggTkoAMC
+# AQICEG1SGHCH6CNNhWAA0ICPk1YwDQYJKoZIhvcNAQELBQAwfDELMAkGA1UEBhMC
+# VVMxDjAMBgNVBAgMBVRleGFzMRAwDgYDVQQHDAdIb3VzdG9uMRgwFgYDVQQKDA9T
+# U0wgQ29ycG9yYXRpb24xMTAvBgNVBAMMKFNTTC5jb20gUm9vdCBDZXJ0aWZpY2F0
+# aW9uIEF1dGhvcml0eSBSU0EwHhcNMTkxMTEzMTg1MDA1WhcNMzQxMTEyMTg1MDA1
+# WjBzMQswCQYDVQQGEwJVUzEOMAwGA1UECAwFVGV4YXMxEDAOBgNVBAcMB0hvdXN0
+# b24xETAPBgNVBAoMCFNTTCBDb3JwMS8wLQYDVQQDDCZTU0wuY29tIFRpbWVzdGFt
+# cGluZyBJc3N1aW5nIFJTQSBDQSBSMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCC
+# AgoCggIBAK5REBPS+TwgoCCF3slQHGTJ4f3F6TT/Cn8xSOhyWsVeqGH98Yf3UVz7
+# t+bQwcITsD7CY6KoGP04OskBgareubfeMKcdKwIE1YBBjKhq4urwiOqxLUmVcvb2
+# oM0wx3BnxQ3NBLu9ZkwMnjQlIY2mEwZMgDaqfZuiEa2BFzinXf3kRLKlQ5oa8ne3
+# QU0vcG4qZvphy0xxBQXayqigzN3z2HQTq6N28EOjpnA2dajGPtiZ9aNJeDfcDka5
+# j3KbhBkzk4RWCjx5vP8H6DKHIIs02GHgxv/jG8JMIxWY1isG+IaB09livKbxlvzh
+# NAKZK5fQmUstrpYrVo7qqXAhJtv1tUaHzrp6QpuUL9dE/bSAC7UKO9xhyJSA1OsY
+# WDx/wAmBA84JzX8IJ1olJjCEmlJ2F4o6dCARKA2Zhk+EU4LogpowBReTlTW2NNwU
+# KAW+8Cte0rhrMBZQ47Vjd92V0gEvouOTMtQJgk2QVeqGwFVw8y4HSdQNa8sl8+Ka
+# y2MnyUXhLoQLFaeVaLs4SVXBOe3Ua1Gp5j3J2+8Yue1T4V5wrsNuocNR3frpSt4y
+# RIG3N68Bz1qqhk+eNUyO8WpXWlg6POZOJUdm0BzzRsB8V7kst8nM8joOe03Kqhun
+# BN69Ckeo8M32qo07zeveRrDwD2P4dmJLDYBflwZ1A/SQbS+HN+AHAgMBAAGjggGB
+# MIIBfTASBgNVHRMBAf8ECDAGAQH/AgEAMB8GA1UdIwQYMBaAFN0ECQei9Xp9UlMS
+# kpXuOIAlDaZZMIGDBggrBgEFBQcBAQR3MHUwUQYIKwYBBQUHMAKGRWh0dHA6Ly93
+# d3cuc3NsLmNvbS9yZXBvc2l0b3J5L1NTTGNvbVJvb3RDZXJ0aWZpY2F0aW9uQXV0
+# aG9yaXR5UlNBLmNydDAgBggrBgEFBQcwAYYUaHR0cDovL29jc3BzLnNzbC5jb20w
+# PwYDVR0gBDgwNjA0BgRVHSAAMCwwKgYIKwYBBQUHAgEWHmh0dHBzOi8vd3d3LnNz
+# bC5jb20vcmVwb3NpdG9yeTATBgNVHSUEDDAKBggrBgEFBQcDCDA7BgNVHR8ENDAy
+# MDCgLqAshipodHRwOi8vY3Jscy5zc2wuY29tL3NzbC5jb20tcnNhLVJvb3RDQS5j
+# cmwwHQYDVR0OBBYEFAydECWOmqcbmYdDzwh+4b2BkPTPMA4GA1UdDwEB/wQEAwIB
+# hjANBgkqhkiG9w0BAQsFAAOCAgEAkhl1DaZaQs8ZB9ny/JT6wJvwFelEllovcTPd
+# UOUTe5mTdw/E+3JtV8u6ppyLRbpIHbYlMy20KJAychU6xdaci4BsP9oVNxSRMsEj
+# fHKz7ARqPNdpclhYAINLjsFGMO1iUNbXiAsnF/xboNCgfeMcMYbLyQYkU6UMobv9
+# isrtQZ8e0EAQNV7qXJn4W0KyuTt0P8iIv/5DdDpIUBIktDZcjz2KEW6B1gvvsKIM
+# 1esjYwWylAazBcQAake5pANMdSn8t1HdPKsiwuWfOguyRQazAX8oXz6SlZSIok0L
+# is9a02vGVtdhEaB0R3HxIyNRMMKWV1yuSeUXFuoexWav3GRPZC0WYb50SrW/l+wg
+# rS8doetaMwyZon2L7ioYlIPSy1h9Dq/Q911PsSkbEZ3zrsB1roVnIfBu5BJp0xvQ
+# rQ/Q4LavuvCoFR7QFoypNrotbNYi2AGMZw5td4zGZtCqUTPZi0BwSuRm+HRYAEMM
+# ThTwbJX/fYV1oC8mBN970yIvadIGKhh7+DmYdRJYBrL8inVFCZAK+YX2w1+qWEnC
+# SPL/VTWJtSRMhQFfceDKbJC+pBNksvKzqkva0J1ZyMj1i4vDfSuBmbz4rfzsvvJx
+# S+quZDdkmW6MeXevWGBXvqzdbAw+AqTVsAQUyP6tFeKZIL4S/fSFdl2rIx2X+KXk
+# qx3S+EYxggJYMIICVAIBATCBhzBzMQswCQYDVQQGEwJVUzEOMAwGA1UECAwFVGV4
+# YXMxEDAOBgNVBAcMB0hvdXN0b24xETAPBgNVBAoMCFNTTCBDb3JwMS8wLQYDVQQD
+# DCZTU0wuY29tIFRpbWVzdGFtcGluZyBJc3N1aW5nIFJTQSBDQSBSMQIQH2sWYtIu
+# G2xd8cDBoGAOODALBglghkgBZQMEAgGgggFhMBoGCSqGSIb3DQEJAzENBgsqhkiG
+# 9w0BCRABBDAcBgkqhkiG9w0BCQUxDxcNMjYwODE0MTcyMzQ1WjAoBgkqhkiG9w0B
+# CTQxGzAZMAsGCWCGSAFlAwQCAaEKBggqhkjOPQQDAjAvBgkqhkiG9w0BCQQxIgQg
+# cepPm4WHQWF36rzxanEpnKgr1CfOm9e4kSiiNyPYMcowgckGCyqGSIb3DQEJEAIv
+# MYG5MIG2MIGzMIGwBCBUKvmhao1yLmYRSXiK6ZTBipqu5aZcs0SiVJr5bHnHizCB
+# izB3pHUwczELMAkGA1UEBhMCVVMxDjAMBgNVBAgMBVRleGFzMRAwDgYDVQQHDAdI
+# b3VzdG9uMREwDwYDVQQKDAhTU0wgQ29ycDEvMC0GA1UEAwwmU1NMLmNvbSBUaW1l
+# c3RhbXBpbmcgSXNzdWluZyBSU0EgQ0EgUjECEB9rFmLSLhtsXfHAwaBgDjgwCgYI
+# KoZIzj0EAwIERzBFAiEA2ozzvRNUuisyO5ossGefQsrzbHXxXzqw1C6keFAVOB4C
+# IBYCBtinoUHLW273LmGXOLpGYPZjueoO5OkZQOaRAatG
+# SIG # End signature block
